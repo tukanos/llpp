@@ -29,7 +29,7 @@ while getopts nFb:O opt; do
     esac
 done
 
-pkgs="freetype2 zlib openssl" # j(peg|big2dec)?
+pkgs="freetype2 ddjvuapi" # j(peg|big2dec)?
 test $fontconfig && pkgs="$pkgs fontconfig" || true
 pwd=$(pwd -P)
 
@@ -45,13 +45,13 @@ expr >/dev/null "$0" : "/.*" && {
 }
 builddir=$(cd $builddir >/dev/null $builddir && pwd -P)
 
-libs="$(pkg-config --libs $pkgs) -ljpeg -ljbig2dec -lopenjpeg"
+libs="$(pkg-config --libs $pkgs)"
 
 test $ocamlfind && {
     lablgldir="$(ocamlfind query lablgl)" || exit 1
     lablglcflags="-I $lablgldir"
 } || {
-    lablglcflags="-I +lablGL"
+    lablglcflags="-I /net/lib/lablGL"
 }
 
 (

@@ -21,7 +21,6 @@
  */
 
 #include FT_ADVANCES_H
-typedef int Rune;               /* 32 bits */
 
 #define PADDING 1               /* set to 0 to save some space but disallow arbitrary transforms */
 
@@ -326,7 +325,7 @@ static float measure_string(FT_Face face, float fsize, char *str)
 
         while (*str)
         {
-                str += fz_chartorune(&ucs, str);
+                str += chartorune(&ucs, str);
                 gid = FT_Get_Char_Index(face, ucs);
                 FT_Get_Advance(face, gid, FT_LOAD_NO_BITMAP | FT_LOAD_NO_HINTING, &advance);
                 w += advance / 65536.0;
@@ -359,7 +358,7 @@ static float draw_string(FT_Face face, float fsize, float x, float y, char *str)
 #endif
         while (*str)
         {
-                str += fz_chartorune(&ucs, str);
+                str += chartorune(&ucs, str);
                 gid = FT_Get_Char_Index(face, ucs);
                 x += draw_glyph(face, size, gid, x, y);
                 if (g_use_kern) {
