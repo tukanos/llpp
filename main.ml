@@ -6755,7 +6755,7 @@ let () =
   try
     loop infinity;
   with Quit ->
-    (* Config.save leavebirdseye; *)
+    Config.save leavebirdseye;
     if hasunsavedchanges ()
     then save ();
 ;;

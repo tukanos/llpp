@@ -84,10 +84,10 @@ static void handle_ddjvu_messages(ddjvu_context_t *ctx, int wait)
         switch(msg->m_any.tag) {
         case DDJVU_ERROR: abort (); break;
         case DDJVU_INFO: printf ("info\n"); break;
-        case DDJVU_NEWSTREAM: printf ("newstgream\n"); break;
+        case DDJVU_NEWSTREAM: printf ("newstream\n"); break;
         case DDJVU_DOCINFO: printf ("docinfo\n"); break;
         default:
-            /* printf ("%d\n", msg->m_any.tag); */
+            printf ("tag %d\n", msg->m_any.tag);
             break;
         }
         ddjvu_message_pop (ctx);
@@ -170,6 +170,7 @@ struct pagedim {
     int pageno;
     int rotate;
     int left;
+    int w, h;
     struct ddjvu_rect_s bounds;
 };
 
@@ -540,8 +541,10 @@ static struct tile *rendertile (struct page *page, int x, int y, int w, int h,
                                 struct pbo *pbo)
 {
     struct tile *tile;
-    struct ddjvu_rect_s rect;
+    struct ddjvu_rect_s rect, UNUSED_ATTR rect1;
     int n = state.texiform == GL_LUMINANCE8 ? 1 : 4;
+    struct pagedim *pdim = state.pagedims + page->pdimno;
+    double a UNUSED_ATTR, b UNUSED_ATTR;
 
     tile = alloctile (h);
 
@@ -550,19 +553,25 @@ static struct tile *rendertile (struct page *page, int x, int y, int w, int h,
     tile->h = h;
     tile->pixmap = malloc (w*h*n);
     if (!tile->pixmap) abort ();
-    rect.x = x;
-    rect.y = y;
-    rect.w = w;
-    rect.h = h;
-    printf ("page %d [%d,%d,%d,%d]\n",
-            page->pageno, x, y, w, h);
+    rect.x = 0;
+    rect.y = 0;
+    rect.w = pdim->w;
+    rect.h = pdim->h;
+    rect1.x = x;
+    rect1.y = y;
+    rect1.w = w;
+    rect1.h = h;
 
     while (!ddjvu_page_decoding_done (page->djpage)) {
         handle_ddjvu_messages (state.ctx, 1);
     }
 
-    ddjvu_page_render (page->djpage, DDJVU_RENDER_COLOR, &rect, &rect,
+    a = now ();
+    ddjvu_page_render (page->djpage, DDJVU_RENDER_COLOR, &rect, &rect1,
                        state.pixel_format, w*n, tile->pixmap);
+    b = now ();
+    lprintf ("page %d [%d,%d,%d,%d] %d %d %f\n",
+             page->pageno, x, y, w, h, rect.w, rect.h, b - a);
     return tile;
 }
 
@@ -655,6 +664,8 @@ static void layout (void)
         int w, h;
         w = p->bounds.w * zoom;
         h = p->bounds.h * zoom;
+        p->w = w;
+        p->h = h;
         printd ("pdim %d %d %d %d", p->pageno, w, h, p->left);
     } while (--p >= state.pagedims);
 }

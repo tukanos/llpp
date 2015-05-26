@@ -1479,7 +1479,7 @@ let defconfpath =
       with _ -> home
     else xdgconfdir
   in
-  Filename.concat dir "llpp.conf"
+  Filename.concat dir "lldp.conf"
 ;;
 
 let confpath = ref defconfpath;;
