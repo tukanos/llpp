@@ -589,7 +589,7 @@ static void initpdims (void)
 
         while ((r = ddjvu_document_get_pageinfo (state.doc,
                                                  i, &info)) < DDJVU_JOB_OK)
-            handle_ddjvu_messages (state.ctx, TRUE);
+            handle_ddjvu_messages (state.ctx, 1);
         if (r >= DDJVU_JOB_FAILED)
             abort ();
         p->left = 0;
