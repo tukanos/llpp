@@ -158,7 +158,7 @@ struct slice {
 };
 
 struct tile {
-    int w, h;
+    int w, h, n;
     int slicecount;
     int sliceheight;
     struct pbo *pbo;
@@ -540,9 +540,9 @@ static struct tile *alloctile (int h)
 static struct tile *rendertile (struct page *page, int x, int y, int w, int h,
                                 struct pbo *pbo)
 {
+    int n = state.texiform == GL_RGB8 ? 3 : 1;
     struct tile *tile;
     struct ddjvu_rect_s rect, UNUSED_ATTR rect1;
-    int n = state.texiform == GL_LUMINANCE8 ? 1 : 4;
     struct pagedim *pdim = state.pagedims + page->pdimno;
     double a UNUSED_ATTR, b UNUSED_ATTR;
 
@@ -551,6 +551,7 @@ static struct tile *rendertile (struct page *page, int x, int y, int w, int h,
     (void) pbo;
     tile->w = w;
     tile->h = h;
+    tile->n = n;
     tile->pixmap = malloc (w*h*n);
     if (!tile->pixmap) abort ();
     rect.x = 0;
@@ -672,31 +673,18 @@ static void layout (void)
 
 static void set_tex_params (int colorspace)
 {
-    union {
-        unsigned char b;
-        unsigned int s;
-    } endianness = {1};
-
     switch (colorspace) {
     case 0:
-        state.texiform = GL_RGBA8;
-        state.texform = GL_RGBA;
+        state.texiform = GL_RGB8;
+        state.texform = GL_RGB;
         state.texty = GL_UNSIGNED_BYTE;
-        state.pixel_format = ddjvu_format_create (
-            DDJVU_FORMAT_RGBMASK32, 4,
-            ((unsigned int []) {0xff,0xff00,0xff0000,0xff000000})
-            );
+        state.pixel_format = ddjvu_format_create (DDJVU_FORMAT_RGB24, 0, NULL);
         break;
     case 1:
-        state.texiform = GL_RGBA8;
-        state.texform = GL_BGRA;
-        state.texty = endianness.s > 1
-            ? GL_UNSIGNED_INT_8_8_8_8
-            : GL_UNSIGNED_INT_8_8_8_8_REV;
-        state.pixel_format = ddjvu_format_create (
-            DDJVU_FORMAT_RGBMASK32, 4,
-            ((unsigned int []) {0xff000000,0xff0000,0xff00,0xff})
-            );
+        state.texiform = GL_RGB8;
+        state.texform = GL_BGR;
+        state.texty = GL_UNSIGNED_BYTE;
+        state.pixel_format = ddjvu_format_create (DDJVU_FORMAT_BGR24, 0, NULL);
         break;
     case 2:
         state.texiform = GL_LUMINANCE8;
@@ -992,8 +980,7 @@ static void * mainloop (void UNUSED_ATTR *unused)
             printd ("tile %d %d %" FMT_ptr " %u %f",
                     x, y,
                     FMT_ptr_cast (tile),
-                    tile->w * tile->h *
-                    state.texiform == GL_LUMINANCE8 ? 1 : 4 ,
+                    tile->w * tile->h * tile->n,
                     b - a);
         }
         else if (!strncmp ("sliceh", p, 6)) {
@@ -1063,8 +1050,7 @@ static void uploadslice (struct tile *tile, struct slice *slice)
 
     offset = 0;
     for (slice1 = tile->slices; slice != slice1; slice1++) {
-        offset += slice1->h * tile->w *
-            (state.texiform == GL_LUMINANCE8 ? 1 : 4);
+        offset += slice1->h * tile->w * tile->n;
     }
     if (slice->texindex != -1 && slice->texindex < state.texcount
         && state.texowners[slice->texindex].slice == slice) {
