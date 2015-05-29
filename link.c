@@ -411,7 +411,6 @@ static int openxref (char *filename)
     state.doc = ddjvu_document_create_by_filename (state.ctx, filename, 0);
     handle_ddjvu_messages (state.ctx, 1);
     state.pagecount = ddjvu_document_get_pagenum (state.doc);
-    state.pagedimcount = state.pagecount;
     return 1;
 }
 
@@ -585,12 +584,11 @@ static struct tile *rendertile (struct page *page, int x, int y, int w, int h,
 static void initpdims (void)
 {
     int i;
-    struct pagedim *p;
+    int pw=pw, ph=ph;
+    struct pagedim *p = NULL;
 
-    if (state.pagedims) abort ();
-    state.pagedims = p = calloc (state.pagecount, sizeof (*state.pagedims));
-
-    for (i = 0; i < state.pagecount; ++i, ++p) {
+    state.pagedimcount = 0;
+    for (i = 0; i < state.pagecount; ++i) {
         ddjvu_status_t r;
         struct ddjvu_pageinfo_s info;
 
@@ -599,13 +597,23 @@ static void initpdims (void)
             handle_ddjvu_messages (state.ctx, 1);
         if (r >= DDJVU_JOB_FAILED)
             abort ();
-        p->left = 0;
-        p->pageno = i;
-        p->rotate = 0;
-        p->bounds.x = 0;
-        p->bounds.y = 0;
-        p->bounds.w = info.width;
-        p->bounds.h = info.height;
+
+        if (state.pagedimcount == 0 || info.width != pw || info.height != ph) {
+            state.pagedims = p = realloc (state.pagedims,
+                                          ++state.pagedimcount * sizeof (*p));
+            if (!p) err (1, "failed to realloc pagedims %d",
+                         state.pagedimcount);
+            p += state.pagedimcount - 1;
+            pw = info.width;
+            ph = info.height;
+            p->left = 0;
+            p->pageno = i;
+            p->rotate = 0;
+            p->bounds.x = 0;
+            p->bounds.y = 0;
+            p->bounds.w = pw;
+            p->bounds.h = ph;
+        }
     }
 }
 
