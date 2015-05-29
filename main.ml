@@ -1213,7 +1213,7 @@ let opendoc path password =
     then path
     else state.origin
   in
-  Wsi.settitle ("llpp " ^ (mbtoutf8 (Filename.basename titlepath)));
+  Wsi.settitle ("lldp " ^ (mbtoutf8 (Filename.basename titlepath)));
   wcmd "open %d %d %s\000%s\000" (btod !wtmode) (btod !cxack) path password;
   invalidate "reqlayout"
     (fun () ->
@@ -4212,7 +4212,7 @@ let getusertext s =
   if emptystr editor
   then E.s
   else
-    let tmppath = Filename.temp_file "llpp" "note" in
+    let tmppath = Filename.temp_file "lldp" "note" in
     if not (emptystr s)
     then (
       let oc = open_out tmppath in
@@ -6614,7 +6614,7 @@ let () =
   state.uioh <- uioh;
   if histmode
   then (
-    Wsi.settitle "llpp (history)";
+    Wsi.settitle "lldp (history)";
     enterhistmode ();
   )
   else (
