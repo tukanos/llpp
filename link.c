@@ -37,7 +37,9 @@
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#ifdef USE_FONTCONFIG
 #include <fontconfig/fontconfig.h>
+#endif
 
 #include <libdjvu/ddjvuapi.h>
 #include <libdjvu/miniexp.h>
@@ -73,27 +75,6 @@ extern char **environ;
 #define SCN_ptr SCNxPTR
 #define FMT_ptr_cast(p) ((uintptr_t) (p))
 #define SCN_ptr_cast(p) ((uintptr_t *) (p))
-
-static void handle_ddjvu_messages(ddjvu_context_t *ctx, int wait)
-{
-    const ddjvu_message_t *msg;
-    if (wait)
-        ddjvu_message_wait (ctx);
-    while ((msg = ddjvu_message_peek (ctx)))
-    {
-        switch(msg->m_any.tag) {
-        case DDJVU_ERROR: abort (); break;
-        case DDJVU_INFO: printf ("info\n"); break;
-        case DDJVU_NEWSTREAM: printf ("newstream\n"); break;
-        case DDJVU_DOCINFO: printf ("docinfo\n"); break;
-        default:
-            printf ("tag %d\n", msg->m_any.tag);
-            break;
-        }
-        ddjvu_message_pop (ctx);
-    }
-    /* printf ("done\n"); */
-}
 
 static void NORETURN_ATTR GCC_FMT_ATTR (2, 3)
     err (int exitcode, const char *fmt, ...)
@@ -291,6 +272,27 @@ static double now (void)
         err (1, "gettimeofday");
     }
     return tv.tv_sec + tv.tv_usec*1e-6;
+}
+
+static void handle_ddjvu_messages (ddjvu_context_t *ctx, int wait)
+{
+    const ddjvu_message_t *msg;
+    if (wait)
+        ddjvu_message_wait (ctx);
+    while ((msg = ddjvu_message_peek (ctx)))
+    {
+        switch(msg->m_any.tag) {
+        case DDJVU_ERROR: abort (); break;
+        case DDJVU_INFO: lprintf ("info\n"); break;
+        case DDJVU_NEWSTREAM: lprintf ("newstream\n"); break;
+        case DDJVU_DOCINFO: lprintf ("docinfo\n"); break;
+        default:
+            lprintf ("tag %d\n", msg->m_any.tag);
+            break;
+        }
+        ddjvu_message_pop (ctx);
+    }
+    /* printf ("done\n"); */
 }
 
 static int UNUSED_ATTR hasdata (void)
@@ -563,9 +565,13 @@ static struct tile *rendertile (struct page *page, int x, int y, int w, int h,
     rect1.w = w;
     rect1.h = h;
 
+    a = now ();
     while (!ddjvu_page_decoding_done (page->djpage)) {
         handle_ddjvu_messages (state.ctx, 1);
     }
+    b = now ();
+    lprintf ("wait page %d [%d,%d,%d,%d] %d %d %f\n",
+             page->pageno, x, y, w, h, rect.w, rect.h, b - a);
 
     a = now ();
     ddjvu_page_render (page->djpage, DDJVU_RENDER_COLOR, &rect, &rect1,
@@ -800,6 +806,71 @@ CAMLprim value ml_mbtoutf8 (value s_v)
     CAMLreturn (ret_v);
 }
 
+static void recurse_outline (struct miniexp_s *e, int level,
+                             struct ddjvu_fileinfo_s *info)
+{
+    int i;
+    int fileno = ddjvu_document_get_filenum (state.doc);
+
+    if (e == miniexp_nil) return;
+
+    while (miniexp_consp (e) != 0) {
+        struct miniexp_s *inner = miniexp_car (e);
+        if (miniexp_consp (inner)
+            && miniexp_consp(miniexp_cdr (inner))
+            && miniexp_stringp (miniexp_car (inner))
+            && miniexp_stringp (miniexp_car (inner))
+            ) {
+            int pageno;
+            const char *name = miniexp_to_str (miniexp_car (inner));
+            const char *link = miniexp_to_str (miniexp_cadr (inner));
+
+            if (link == NULL || link[0] != '#') {
+                e = miniexp_cdr (e);
+                continue;
+            }
+
+            pageno = -1;
+            for (i = 0; i < fileno; ++i)  {
+                if (!strcmp (link+1, info[i].id)) {
+                    pageno = info[i].pageno > 0 ? info[i].pageno - 1 : 0;
+                    break;
+                }
+            }
+            if (pageno >= 0)
+                printd ("o %d %d 1 1 %s", level, pageno, name);
+            recurse_outline (miniexp_cddr (inner), level + 1, info);
+        }
+        e = miniexp_cdr (e);
+    }
+}
+
+static void process_outline (void)
+{
+    struct miniexp_s *o;
+
+    if (!state.doc) return;
+    while ((o = ddjvu_document_get_outline (state.doc)) == miniexp_dummy) {
+        handle_ddjvu_messages (state.ctx, 1);
+    }
+    if (o == NULL) return;
+    if (miniexp_consp (o) == 0
+        || miniexp_car (o) != miniexp_symbol ("bookmarks")) {
+        ddjvu_miniexp_release (state.doc, o);
+        return;
+    }
+    struct ddjvu_fileinfo_s *info;
+    int fileno = ddjvu_document_get_filenum (state.doc);
+    info = malloc (sizeof (*info) * fileno);
+    if (!info) abort ();;
+    for (int i = 0; i < fileno; ++i) {
+        ddjvu_document_get_fileinfo (state.doc, i, &info[i]);
+    }
+    recurse_outline (o, 0, info);
+    free (info);
+    ddjvu_miniexp_release (state.doc, o);
+}
+
 static void * mainloop (void UNUSED_ATTR *unused)
 {
     char *p = NULL;
@@ -909,7 +980,7 @@ static void * mainloop (void UNUSED_ATTR *unused)
             }
             state.fitmodel = fitmodel;
             layout ();
-            /* process_outline (); */
+            process_outline ();
 
             state.gen++;
             unlock ("geometry");
@@ -933,7 +1004,7 @@ static void * mainloop (void UNUSED_ATTR *unused)
             state.fitmodel = fitmodel;
             state.h = h;
             layout ();
-            /* process_outline (); */
+            process_outline ();
 
             state.gen++;
             unlock ("reqlayout");
@@ -1003,6 +1074,8 @@ static void * mainloop (void UNUSED_ATTR *unused)
         }
         else if (!strncmp ("interrupt", p, 9)) {
             printd ("vmsg interrupted");
+        }
+        else if (!strncmp ("trimset", p, 7)) {
         }
         else {
             errx (1, "unknown command %.*s", len, p);
@@ -1748,7 +1821,7 @@ static void makestippletex (void)
 
 CAMLprim value ml_fz_version (value UNUSED_ATTR unit_v)
 {
-    return caml_copy_string ("0.0");
+    return caml_copy_string (ddjvu_get_version_string ());
 }
 
 CAMLprim value ml_init (value csock_v, value params_v)
@@ -1777,11 +1850,8 @@ CAMLprim value ml_init (value csock_v, value params_v)
     state.trimmargins = Bool_val (Field (trim_v, 0));
     set_tex_params (colorspace);
 
-    fontpath = "/home/malc/.fonts/DroidSansMono.ttf";
     if (*fontpath) {
-#ifndef USE_FONTCONFIG
-        state.face = load_font (fontpath);
-#else
+#ifdef FONTCONFIG
         FcChar8 *path;
         FcResult result;
         FcConfig *config;
@@ -1815,10 +1885,9 @@ CAMLprim value ml_init (value csock_v, value params_v)
         state.face = load_font ((char *) path);
         FcPatternDestroy (pat);
         FcPatternDestroy (pat1);
+#else
+        state.face = load_font (fontpath);
 #endif
-    }
-    else {
-        abort ();
     }
     if (!state.face) _exit (1);
 
