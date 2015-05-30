@@ -480,7 +480,7 @@ let platform_to_string = function
 ;;
 
 let version () =
-  Printf.sprintf "llpp version %s, fitz %s, ocaml %s/%d bit"
+  Printf.sprintf "llpp version %s, %s, ocaml %s/%d bit"
     Help.version (fz_version ()) Sys.ocaml_version Sys.word_size
 ;;
 
