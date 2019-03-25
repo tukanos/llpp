@@ -517,12 +517,7 @@ let tilepage n p layout =
                   let h = l.pageh - y in
                   min h conf.tileh
                 in
-                let pbo =
-                  if conf.usepbo
-                  then getpbo w h conf.colorspace
-                  else ~< "0"
-                in
-                wcmd "tile %s %d %d %d %d %s" (~> p) x y w h (~> pbo);
+                wcmd "tile %s %d %d %d %d" (~> p) x y w h;
                 state.currently <-
                   Tiling (
                       l, p, conf.colorspace, conf.angle,
@@ -1017,7 +1012,6 @@ let gctiles () =
              )
         then Queue.push lruitem state.tilelru
         else (
-          freepbo p;
           wcmd "freetile %s" (~> p);
           state.memused <- state.memused - s;
           state.uioh#infochanged Memused;
@@ -1274,7 +1268,6 @@ let act cmds =
      | Tiling (l, pageopaque, cs, angle, gen, col, row, tilew, tileh) ->
         vlog "tile %d [%d,%d] took %f sec" l.pageno col row t;
 
-        unmappbo opaque;
         if tilew != conf.tilew || tileh != conf.tileh
         then (
           wcmd "freetile %s" (~> opaque);
@@ -2569,11 +2562,6 @@ let enterinfomode =
       src#paxmark "pax mark method"
         (fun () -> MTE.to_string conf.paxmark)
         (fun v -> conf.paxmark <- MTE.of_int v);
-      if bousable ()
-      then
-        src#bool "use PBO"
-          (fun () -> conf.usepbo)
-          (fun v -> conf.usepbo <- v);
       src#bool "mouse wheel scrolls pages"
         (fun () -> conf.wheelbypage)
         (fun v -> conf.wheelbypage <- v);

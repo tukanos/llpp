@@ -118,7 +118,6 @@ K keyhashes '(string * keyhash) list' \
       ; mk "birdseye"; mk "textentry"; mk "links"; mk "view" ])'
 i hfsize '12 * Wsi.fontsizefactor ()'
 f pgscale 1.
-b usepbo false
 b wheelbypage false
 s stcmd "{|echo SyncTex|}"
 b riani false
