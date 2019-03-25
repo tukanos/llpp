@@ -85,8 +85,3 @@ CAMLprim void ml_swapb (void)
 {
     glXSwapBuffers (glx.dpy, glx.wid);
 }
-
-void (*wsigladdr (const char *name)) (void)
-{
-    return glXGetProcAddress ((const GLubyte *) name);
-}
