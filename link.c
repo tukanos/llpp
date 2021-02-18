@@ -3474,6 +3474,40 @@ ML0 (setdcf (value path_v))
     }
 }
 
+ML (topblockheight (value ptr_v, value y_v))
+{
+    CAMLparam2 (ptr_v, y_v);
+    CAMLlocal1 (ret_v);
+    struct page *page = parse_pointer (__func__, String_val (ptr_v));
+    int y = Int_val (y_v);
+    fz_stext_block *block;
+    fz_rect *b;
+
+    ensuretext (page);
+
+    for (block = page->text->first_block; block; block = block->next) {
+        switch (block->type) {
+        case FZ_STEXT_BLOCK_TEXT:
+            b = &block->bbox;
+            break;
+
+        case FZ_STEXT_BLOCK_IMAGE:
+            b = &block->bbox;
+            break;
+
+        default:
+            continue;
+        }
+        if (y < b->y1) {
+            ret_v = Val_int (b->y1 - y + 1);
+            goto done;
+        }
+    }
+    ret_v = Val_int (-1);
+done:
+    CAMLreturn (ret_v);
+}
+
 ML (init (value csock_v, value params_v))
 {
     CAMLparam2 (csock_v, params_v);

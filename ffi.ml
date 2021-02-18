@@ -60,3 +60,5 @@ external llpp_version : unit -> string = "ml_llpp_version"
 external measurestr : int -> string -> float = "ml_measure_string"
 external toutf8 : int -> string = "ml_keysymtoutf8"
 external mbtoutf8 : string -> string = "ml_mbtoutf8"
+
+external topblockheight : opaque -> y -> y = "ml_topblockheight"

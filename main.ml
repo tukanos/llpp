@@ -3095,6 +3095,18 @@ let viewkeyboard key mask =
   let ctrl = Wsi.withctrl mask in
   let open Keys in
   match Wsi.ks2kt key with
+  | Ascii ';' ->
+     begin match !S.layout with
+       | [] -> ()
+       | l :: _ ->
+          match getopaque l.pageno with
+          | exception Not_found ->  ()
+          | opaque ->
+             let bh = Ffi.topblockheight opaque l.pagey in
+             if bh = -1
+             then nextpage ()
+             else gotoxy !S.x (U.clamp bh)
+     end
   | Ascii 'Q' -> exit 0
   | Ascii 'z' ->
      let yloc f =
